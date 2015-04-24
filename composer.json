@@ -1,0 +1,21 @@
+{
+    "name": "unclecheese/db-surgeon",
+    "description": "Migrates a source database to a target database, (i.e. staging to production) and merges content based on comparison to a timestamp.",
+    "type": "silverstripe-module",
+    "keywords": ["silverstripe", "database", "migration", "cli", "task"],
+	"license": "BSD-3-Clause",
+    "authors": [
+    {
+        "name": "Uncle Cheese",
+        "email": "unclecheese@leftandmain.com"
+    }
+    ],
+    "require":
+    {
+        "silverstripe/framework": "3.1.*"
+    },
+    "extra": {
+		"installer-name": "db-surgeon"
+    }
+    
+}
