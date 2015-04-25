@@ -7,7 +7,7 @@
  * @package  silverstripe-db-surgeon
  * @author Uncle Cheese <unclecheese@leftandmain.com>
  */
-class DatabaseBookmarkTask extends DatabaseSurgeonBaseTask {
+class DatabaseSurgeonBookmarkTask extends DatabaseSurgeonBaseTask {
 
 	/**
 	 * Initialises the task. Sanity check	 
