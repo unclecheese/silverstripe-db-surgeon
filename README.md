@@ -54,6 +54,8 @@ Each migration task has three distinct phases:
 * **delete**: Find any records that are on the target database that are no longer on the source database, and delete them, provided they have not been modified since the bookmark.
 * **relate**: Create `has_one` and `many_many` relations for any records that have been added to the target database, using their new IDs. `has_many` is omitted from this phase, as those relationships are just `has_one` at the database level.
 
+To revolve ambiguity between IDs, the target database stores its ID on `__TargetID` of the DataObject, and this is used throughout the migrations as a source of truth, especially when creating relationships. For hierarchical DataObjects, `__TargetParentID` is used much the same way.
+
 ## Migration heuristics
 * If a record of the same `ClassName` and `ID` cannot be found on the target database, **CREATE**.
 
@@ -66,7 +68,7 @@ Otherwise, if a target record *can* be found with the same `ClassName` and `ID`:
 ## Negotaiting conflicts
 
 In the event of a **CONFLICT**, the user is prompted with three choices:
-* (k)eep both
+* keep (t)arget
 * keep (s)ource
 * keep (b)oth
 
