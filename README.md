@@ -1,6 +1,6 @@
 # SilverStripe DB Surgeon
 
-** Warning: Experimental **
+**Warning: Experimental**
 
 This module provides a task that will surgically migrate one SilverStripe database to another, and negotiate the differences, creating a new merged database.
 
