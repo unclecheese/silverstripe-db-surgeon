@@ -12,7 +12,13 @@ class DatabaseSurgeonSiteTreeMigration extends DatabaseSurgeonHierarchicalMigrat
 	 * The base class of the hierarchy
 	 * @var string
 	 */
-	protected $baseClass = 'SiteTree';	
+	protected $baseClass = 'SiteTree';
+
+	/**
+	 * Output for each record, even if nothing happened to it.
+	 * @var boolean
+	 */
+	protected $verbose = true;
 
 	/**
 	 * Gets a list of has_one relations that should be ignored
@@ -54,5 +60,14 @@ class DatabaseSurgeonSiteTreeMigration extends DatabaseSurgeonHierarchicalMigrat
 			$node->deleteFromStage('Stage');
 			$node->delete();
 		}
+	}
+
+	/**
+	 * Runs the "relate" phase of the migration, in which recods are assigned
+	 * new foreign keys
+	 */
+	public function runRelatePhase() {
+		Versioned::reading_stage('Stage');
+		parent::runRelatePhase();
 	}
 }

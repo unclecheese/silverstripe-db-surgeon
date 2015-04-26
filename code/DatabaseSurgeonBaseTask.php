@@ -41,6 +41,12 @@ class DatabaseSurgeonBaseTask extends CliController {
 	public $conflicts = 0;
 
 	/**
+	 * A log of messages
+	 * @var array
+	 */
+	public $log = array ();
+
+	/**
 	 * The store of all records that have been written to the target database.
 	 * The source of truth for all ID questions.
 	 * 
@@ -158,7 +164,7 @@ class DatabaseSurgeonBaseTask extends CliController {
 	 * Writes text to the output stream
 	 * @param  string $msg The message to write	 
 	 */
-	public function write($msg) {
+	public function write($msg, $type = null) {
 		fwrite(STDOUT, $msg);
 	}
 
@@ -167,7 +173,7 @@ class DatabaseSurgeonBaseTask extends CliController {
 	 * @param  string $msg The error message	 
 	 */
 	public function error($msg) {
-		$this->writeLn("[ERROR] . $msg");
+		$this->writeLn(SS_Cli::text($msg, 'white', 'red', true));
 	}
 
 	/**
@@ -175,7 +181,7 @@ class DatabaseSurgeonBaseTask extends CliController {
 	 * @param  string $msg The error message	 
 	 */
 	public function fail($msg) {
-		$this->writeLn("[FAILED] $msg");
+		$this->error("[FAILED] $msg");
 		
 		die();
 	}
@@ -209,6 +215,14 @@ class DatabaseSurgeonBaseTask extends CliController {
 		return $response;
 	}
 
+	/**
+	 * Logs a message
+	 * @param  string $msg	 
+	 */
+	public function log($msg) {
+		$this->log[] = $msg;
+	}
+		
 	/**
 	 * Gets an argunment from the command line
 	 * @param  string $arg The name of the arg to get

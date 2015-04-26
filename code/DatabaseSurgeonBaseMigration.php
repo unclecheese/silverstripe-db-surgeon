@@ -130,10 +130,10 @@ class DatabaseSurgeonBaseMigration extends Object {
 	 */
 	public function throwConflict(DataObject $sourceRecord, DataObject $targetRecord) {
 		$this->task->writeLn();
-		$response = trim(strtolower($this->task->prompt("
-	[CONFLICT] Target {$sourceRecord->ClassName} record {$sourceRecord->getTitle()} has been updated on the target database since the bookmark.\n
-	[Keep (t)arget, Keep (s)ource, Keep (b)oth]
-		")));
+		$response = trim(strtolower($this->task->prompt(
+SS_Cli::text('[CONFLICT]','white','red') . 
+"Target {$sourceRecord->ClassName} record {$sourceRecord->getTitle()} has been updated on the target database since the bookmark.\n
+[Keep (t)arget, Keep (s)ource, Keep (b)oth]")));
 
 		if(!in_array($response, array('t','s','b'))) {
 			$this->task->writeLn('Invalid response');
@@ -150,12 +150,14 @@ class DatabaseSurgeonBaseMigration extends Object {
 	 */
 	public function handleUpdate(DataObject $record) {
 		$this->task->writeLn();
-		$this->task->writeLn("\tSource {$record->ClassName} record {$record->getTitle()} is out of date with its target counterpart. Updating.");
+		$this->task->log("Source {$record->ClassName} record {$record->getTitle()} is out of date with its target counterpart. Updating.");
 
 		$record->forceChange();
 		$record->writeToTarget();
 		$this->task->store($record);
 		$this->task->updated++;
+
+		return $record->getTitle() . " " . SS_Cli::text("[UPDATED]", 'cyan', null ,true);		
 	}
 
 	/**
@@ -165,15 +167,16 @@ class DatabaseSurgeonBaseMigration extends Object {
 	 */
 	public function handleCreate(DataObject $record) {
 		$this->task->writeLn();
-		$this->task->writeLn("\tSource {$record->ClassName} record {$record->getTitle()} does not exist on target. Creating.");
+		$this->task->log("Source {$record->ClassName} record {$record->getTitle()} does not exist on target. Creating.");
 		
 		$record->forceChange();
 		$newID = $record->createOnTarget();					
 		$record->__TargetID = $newID;		
 		$this->task->store($record);
-		$this->task->writeLn("\tSource {$record->ClassName} \"{$record->getTitle()}\" stored on target as $newID");
+		$this->task->log("Source {$record->ClassName} \"{$record->getTitle()}\" stored on target as $newID");
 		$this->task->added++;
 
+		return $record->getTitle() . " " . SS_Cli::text("[CREATED]", 'green', null ,true);						
 	}
 
 	/**
@@ -190,7 +193,6 @@ class DatabaseSurgeonBaseMigration extends Object {
 	protected function relationListCheck($relation, DataObject $record) {
 		$sourceIDs = $record->$relation()->fromSource()->column('ID');		
 		$targetIDs = $record->$relation()->fromTarget()->column('ID');
-
 		$targetDiff = array_diff($targetIDs, $sourceIDs);
 		$sourceDiff = array_diff($sourceIDs, $targetIDs);
 
@@ -218,13 +220,13 @@ class DatabaseSurgeonBaseMigration extends Object {
 			
 			switch($result) {
 				case -1:
-					$this->task->error("\n\t[CONFLICT] Target {$sourceRecord->ClassName} record {$sourceRecord->getTitle()} has modified its many_many relation $relation since the bookmark. Skipping.");
+					$this->task->log("[CONFLICT] Target {$sourceRecord->ClassName} record {$sourceRecord->getTitle()} has modified its many_many relation $relation since the bookmark. Skipping.");
 					$this->task->conflicts++;
 
 				break;
 
 				case 1:					
-					$this->task->writeLn("\n\tSource {$sourceRecord->ClassName} record {$sourceRecord->getTitle()} has an updated many_many relation $relation.");
+					$this->task->log("Source {$sourceRecord->ClassName} record {$sourceRecord->getTitle()} has an updated many_many relation $relation.");
 					$this->task->store($sourceRecord);
 					$this->task->updated++;							
 				break;
@@ -241,19 +243,23 @@ class DatabaseSurgeonBaseMigration extends Object {
 	 */
 	protected function relateHasOne(DataObject $storedRecord) {
 		$exclusions = $this->getHasOneExclusions();
-
-		foreach((array) $storedRecord->config()->has_one as $relation => $relationClass) {		
+		$updates = array ();
+		foreach((array) $storedRecord->config()->has_one as $relation => $relationClass) {
 			if(in_array($relation, $exclusions)) continue;
 			
 			$idField = "{$relation}ID";
 			$idVal = $storedRecord->$idField;
-			if($updated = $this->task->retrieve($relationClass, $idVal)) {
+			if($updated = $this->task->retrieve($relationClass, $idVal)) {	
 				$storedRecord->$idField = $updated->__TargetID;
 				$storedRecord->forceChange();
 				$storedRecord->writeToTarget();
-				$this->task->writeLn();
-				$this->task->writeLn("\tSource {$storedRecord->ClassName} object has_one relation $relation updated on target");
+				$this->task->log("Source {$storedRecord->ClassName} object has_one relation $relation updated on target");
+				$updates[] = $relation;				
 			}
+		}
+
+		if(!empty($updates)) {
+			return $storedRecord->getTitle() . " has_one relation(s) ". implode(', ', $updates) . " " . SS_Cli::text('[UPDATED]','cyan', null, true);
 		}
 	}
 
@@ -263,31 +269,36 @@ class DatabaseSurgeonBaseMigration extends Object {
 	 */
 	protected function relateManyMany(DataObject $storedRecord) {
 		$exclusions = $this->getManyManyExclusions();		
+		$updates = array ();
 
-		foreach((array) $storedRecord->config()->many_many as $relation => $relationClass) {
+		foreach((array) $storedRecord->config()->many_many as $relation => $relationClass) {			
 			if(in_array($relation, $exclusions)) continue;
 
 			$result = $this->relationListCheck($relation, $storedRecord);
-			
 			if($result === 0) continue;
 
 			if($result === -1) {
-				$this->task->error("\n\t[CONFLICT] Target {$storedRecord->ClassName} record {$storedRecord->getTitle()} has modified its many_many relation $relation since the bookmark. Skipping.");
+				$this->task->log("[CONFLICT] Target {$storedRecord->ClassName} record {$storedRecord->getTitle()} has modified its many_many relation $relation since the bookmark. Skipping.");
 				continue;
 			}
-
 			$relatedRecords = $storedRecord->$relation()->fromSource()->toArray();			
 			$newIDs = array ();
 			foreach($relatedRecords as $related) {
 				$stored = $this->task->retrieve($related);					
 				$newIDs[] = $stored ? $stored->__TargetID : $related->ID;
 			}
-			$storedRecord->$relation()->fromTarget()->setByIDList($newIDs);
+			$storedRecord->useTarget()->$relation()->fromTarget()->setByIDList($newIDs);
 
 			$storedRecord->forceChange();
-			$storedRecord->writeToTarget();
-			$this->task->writeLn("\n\tUpdated many_many relation $relation for $storedRecord->Title");
+			$storedRecord->useSource()->writeToTarget();
+			$this->task->log("Updated many_many relation $relation for $storedRecord->Title");
+			$updated[] = $relation;
+			
 		}
+
+		if(!empty($updates)) {
+			return $storedRecord->getTitle() . " many_many relation(s) ". implode(', ', $updates) . " " . SS_Cli::text('[UPDATED]','cyan', null, true);
+		}		
 	}
 
 	/**
@@ -299,7 +310,7 @@ class DatabaseSurgeonBaseMigration extends Object {
 	 */
 	protected function processUpdate(DataObject $sourceRecord, DataObject $targetRecord) {
 		if(!$targetRecord && $this->isCreatedAfterBookmark($sourceRecord)) {
-			$this->handleCreate($sourceRecord);
+			return $this->handleCreate($sourceRecord);
 		}			
 		else {
 			$this->manyManyCheck($sourceRecord);
@@ -311,7 +322,7 @@ class DatabaseSurgeonBaseMigration extends Object {
 
 			// keep both
 			if($targetCreated && $sourceCreated) {
-				$this->handleCreate($sourceRecord);
+				return $this->handleCreate($sourceRecord);
 			}
 
 			// Throw a conflict
@@ -324,24 +335,22 @@ class DatabaseSurgeonBaseMigration extends Object {
 
 					// keep source
 					case "s":
-						$this->handleUpdate($sourceRecord);
-						break;
+						return $this->handleUpdate($sourceRecord);						
 					// keep both
 					case "b":
 						$sourceRecord->ID = 0;
-						$this->handleCreate($sourceRecord);
-						break;
+						return $this->handleCreate($sourceRecord);						
 				}
 			}
 
 
 			else if($targetEdited && !$sourceEdited) {
-				$this->task->writeLn("Target record {$targetRecord->Title} was edited, but source record {$sourceRecord->Title} was not. Skipping");
+				$this->task->log("Target record {$targetRecord->Title} was edited, but source record {$sourceRecord->Title} was not. Skipping");
 				return;
 			}
 
 			else if(!$targetEdited && $sourceEdited) {
-				$this->handleUpdate($sourceRecord);
+				return $this->handleUpdate($sourceRecord);
 			}
 		}	
 	}

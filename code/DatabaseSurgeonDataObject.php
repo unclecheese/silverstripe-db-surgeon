@@ -65,4 +65,30 @@ class DatabaseSurgeonDataObject extends DataExtension {
 
 		return $this->owner->write();
 	}
+
+	/**
+	 * Explicitly convert this DataObject to its "target" counterpart by flipping the IDs
+	 * @return DataObject
+	 */
+	public function useTarget() {
+		if($this->owner->__TargetID) {
+			$originalID = $this->owner->ID;
+			$this->owner->ID = $this->owner->__TargetID;
+			$this->__SourceID = $originalID;
+		}
+
+		return $this->owner;
+	}
+
+	/**
+	 * Explicitly convert this DataObject to its "source" counterpart by flipping the IDs
+	 * @return DataObject
+	 */
+	public function useSource() {
+		if($this->owner->__SourceID) {			
+			$this->owner->ID = $this->owner->__SourceID;
+		}
+
+		return $this->owner;		
+	}
 }

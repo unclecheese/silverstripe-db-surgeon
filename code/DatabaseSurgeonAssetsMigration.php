@@ -63,18 +63,18 @@ class DatabaseSurgeonAssetsMigration extends DatabaseSurgeonHierarchicalMigratio
 		}
 				
 		$url = Controller::join_links(SS_SOURCE_URL, $record->Filename);
-		$this->task->writeLn("\tDownloading " . $record->__TargetParentID  . $url);
+		$this->task->log("Downloading " . $record->__TargetParentID  . $url);
 		$contents = @file_get_contents($url);
 		if(!$contents) {
 			return $this->task->error('Error downloading file ' . $url);
 		}
-		$this->task->writeLn("\tWriting to " . $record->getFullPath());
+		$this->task->log("Writing to " . $record->getFullPath());
 		@file_put_contents($record->getFullPath(), $contents);
 		
 		if(!file_exists($record->getFullPath())) {
 			$this->task->error("\tFailed to write file " . $record->getFullPath());
 		}
 	
-		parent::handleCreate($record);
+		return parent::handleCreate($record);
 	}		
 }

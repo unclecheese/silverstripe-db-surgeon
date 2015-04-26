@@ -16,6 +16,11 @@ class DatabaseSurgeonHierarchicalMigration extends DatabaseSurgeonBaseMigration 
 	protected $baseClass;
 
 	/**
+	 * If true, output for each record even if not changed.
+	 */
+	protected $verbose = false;
+
+	/**
 	 * Constructor. Assigns the task and bookmark,
 	 * @param DatabaseSurgeonTask     $task     
 	 * @param DatabaseSurgeonBookmark $bookmark 
@@ -32,26 +37,35 @@ class DatabaseSurgeonHierarchicalMigration extends DatabaseSurgeonBaseMigration 
 	 * Recursive function that traverses the tree and runs processUpdate()
 	 * for each record
 	 * @param  int $id The top level ID	 
+	 * @param  int $level The level of the hierarchy
 	 */
-	protected function traverse($id) {
+	protected function traverse($id, $level = 0) {
 		$baseClass = $this->baseClass;
 		$children = $baseClass::get()->fromSource()->filter(array(
 			'ParentID' => $id
 		))->toArray();
 		
-		foreach($children as $sourceRecord) {			
+		foreach($children as $sourceRecord) {
+			$tab = str_pad("\t", $level);
 			$targetRecord = DataList::create($sourceRecord->ClassName)
 								->fromTarget()
 								->byID($sourceRecord->ID);
-			
-			$this->processUpdate($sourceRecord, $targetRecord);			
+		
+			$msg = $this->processUpdate($sourceRecord, $targetRecord, $level);			
+			if($msg) {
+				$this->task->writeln($tab.$msg);
+			}
+			else if($this->verbose) {
+				$this->task->writeln($tab.$sourceRecord->Title);
+			}
 			
 			$children = $baseClass::get()->fromSource()->filter(array(
 				'ParentID' => $sourceRecord->ID
 			))->toArray();
 
 			if(!empty($children)) {
-				$this->traverse($sourceRecord->ID);
+				$level++;
+				$this->traverse($sourceRecord->ID, $level);
 			}
 		}
 	}
@@ -79,8 +93,7 @@ class DatabaseSurgeonHierarchicalMigration extends DatabaseSurgeonBaseMigration 
 								->fromSource()
 								->byID($targetRecord->ID);
 			if(!$sourceRecord && !$this->isEditedAfterBookmark($targetRecord)) {
-				$this->task->writeLn();
-				$this->task->writeln("\t\tTarget {$targetRecord->ClassName} \"{$targetRecord->getTitle()}\" is not in the source databse. Deleting.");
+				$this->task->writeln("{$targetRecord->ClassName} \"{$targetRecord->getTitle()}\" " . SS_Cli::text('[DELETED]','red',null, true));
 				$remoteIDs[] = $targetRecord->ID;
 				$this->task->deleted++;
 			}			
@@ -94,18 +107,25 @@ class DatabaseSurgeonHierarchicalMigration extends DatabaseSurgeonBaseMigration 
 	 * new foreign keys
 	 */
 	public function runRelatePhase() {
-		Versioned::reading_stage('Stage');
-		$sourceRecords = SiteTree::get()->fromSource()->toArray();		
-		$targetRecords = SiteTree::get()->fromTarget()->toArray();
+		$baseClass = $this->baseClass;
+		$sourceRecords = $baseClass::get()->fromSource()->toArray();		
+		$targetRecords = $baseClass::get()->fromTarget()->toArray();
 			
 		foreach($sourceRecords as $sourceRecord) {
 			$storedRecord = $this->task->retrieve($sourceRecord);
-			if(!$storedRecord) {
+			if(!$storedRecord) {				
 				continue;
 			}
 
-			$this->relateHasOne($storedRecord);			
-			$this->relateManyMany($storedRecord);
+			$hasOneMsg = $this->relateHasOne($storedRecord);				
+			$mmMsg = $this->relateManyMany($storedRecord);
+
+			if($hasOneMsg) {
+				$this->task->writeln("\t{$hasOneMsg}");
+			}
+			if($mmMsg) {
+				$this->task->writeln("\t{$mmMsg}");
+			}
 		}					
 	}
 
@@ -115,8 +135,7 @@ class DatabaseSurgeonHierarchicalMigration extends DatabaseSurgeonBaseMigration 
 	 */
 	public function handleCreate(DataObject $record) {
 		Versioned::reading_stage('Stage');
-		$this->task->writeLn();
-		$this->task->writeLn("\tSource {$record->ClassName} record {$record->getTitle()} does not exist on target. Creating.");
+		$this->task->log("Source {$record->ClassName} record {$record->getTitle()} does not exist on target. Creating.");
 
 		if($storedParent = $this->task->retrieve($this->baseClass, $record->ParentID)) {
 			$record->__TargetParentID = $storedParent->__TargetID;
@@ -136,7 +155,9 @@ class DatabaseSurgeonHierarchicalMigration extends DatabaseSurgeonBaseMigration 
 		$record->__TargetID = $newID;
 
 		$this->task->store($record);
-		$this->task->writeLn("\tSource {$record->ClassName} \"{$record->getTitle()}\" stored on target as $newID with parent id {$record->__TargetParentID}");
+		$this->task->log("Source {$record->ClassName} \"{$record->getTitle()}\" stored on target as $newID with parent id {$record->__TargetParentID}");
 		$this->task->added++;
+
+		return $record->Title . " " . SS_Cli::text('[CREATED]','green', null, true);
 	}	
 }

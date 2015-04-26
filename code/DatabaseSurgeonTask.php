@@ -71,32 +71,38 @@ class DatabaseSurgeonTask extends DatabaseSurgeonBaseTask {
 			}
 		}
 
-		$this->writeLn('Migrating data based on bookmark from ' . $bookmark);
-		$this->writeLn('Beginning DataObject migration');
+		$this->writeLn("\nMigrating data based on bookmark from $bookmark\n");
+		$this->writeLn(SS_Cli::text("\n\n  Beginning DataObject migration\n",'white','blue'));
 		$dataObjectTask = DatabaseSurgeonDataObjectMigration::create($this, $bookmark);
 		$dataObjectTask->runUpdatePhase();
 		$dataObjectTask->runDeletePhase();
-		$this->writeLn('DataObject migration complete');
+		$this->writeln();
+		$this->write(SS_Cli::text("[[[ DataObject migration complete ]]]",'black','yellow'));
+		$this->writeln();
 
-		$this->writeLn('Beginning assets migration');
+
+		$this->writeLn(SS_Cli::text("\n\n  Beginning assets migration\n",'white','blue'));
 		$assetsTask = DatabaseSurgeonAssetsMigration::create($this, $bookmark);
 		$assetsTask->runUpdatePhase();
 		$assetsTask->runDeletePhase();
-		$this->writeLn('Assets migration complete');
+		$this->writeln();
+		$this->write(SS_Cli::text("[[[ Assets migration complete ]]]",'black','yellow'));
+		$this->writeln();
 
-		$this->writeLn('Beginning SiteTree migration');
+		$this->writeLn(SS_Cli::text("\n\n  Beginning SiteTree migration\n",'white','blue'));
 		$siteTreeTask = DatabaseSurgeonSiteTreeMigration::create($this, $bookmark);
 		$siteTreeTask->runUpdatePhase();
 		$siteTreeTask->runDeletePhase();
-		$this->writeLn('SiteTree migration complete');		
+		$this->writeln();
+		$this->write(SS_Cli::text("[[[ SiteTree migration complete ]]]",'black','yellow'));
+		$this->writeln();
 
-		$this->writeLn('Relating DataObjects');
+		$this->writeLn("\n\nRelating DataObjects...\n");
 		$dataObjectTask->runRelatePhase();
-		$this->writeLn('Relating assets');
+		$this->writeLn("\n\nRelating assets...\n");
 		$assetsTask->runRelatePhase();
-		$this->writeLn('Relating SiteTree');
+		$this->writeLn("\n\nRelating SiteTree...\n");
 		$siteTreeTask->runRelatePhase();
-
 		 			
 	}
 }

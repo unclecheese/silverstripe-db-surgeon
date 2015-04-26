@@ -40,20 +40,30 @@ class DatabaseSurgeonDataObjectMigration extends DatabaseSurgeonBaseMigration {
 		$previousClass = null;		
 		// add, update
 		foreach($classes as $class) {
-			$this->task->write(str_pad("--- $class ---", 50, ' ', STR_PAD_RIGHT));
-			$sourceRecords = $class::get()->fromSource()->toArray();			
+			$classLabel = str_pad("--- $class ---", 50, ' ', STR_PAD_RIGHT);
+			$this->task->write($classLabel);
+			$sourceRecords = $class::get()->fromSource()->toArray();
+			$hasActivity = false;			
 			foreach($sourceRecords as $sourceRecord) {			
 				$targetRecord = $class::get()
 									->fromTarget()
 									->byID($sourceRecord->ID);
 
-				$this->processUpdate($sourceRecord, $targetRecord);
-			}
+				$msg = $this->processUpdate($sourceRecord, $targetRecord);
 
+				if($msg) {
+					if(!$hasActivity) $this->task->writeln();
+					$hasActivity = true;
+					$this->task->write("\t".$msg);
+				}
+			}
+			if($hasActivity) {
+				$this->task->writeln();
+				$this->task->write($classLabel);
+			}
 			$this->task->write("\033[50D");
 			$previousClass = $class;
 		}
-
 	}
 
 	/**
@@ -65,20 +75,31 @@ class DatabaseSurgeonDataObjectMigration extends DatabaseSurgeonBaseMigration {
 		$previousClass = null;				
 		foreach($classes as $class) {
 			$targetIDs = array ();
-			$this->task->write(str_pad("--- $class ---", 50, ' ', STR_PAD_RIGHT));
-			$targetRecords = $class::get()->fromTarget()->toArray();			
+			$classLabel = str_pad("--- $class ---", 50, ' ', STR_PAD_RIGHT);
+			$this->task->write($classLabel);
+			$targetRecords = $class::get()->fromTarget()->toArray();
+			$hasActivity = false;			
 			foreach($targetRecords as $targetRecord) {
 				$sourceRecord = $class::get()->fromSource()->byID($targetRecord->ID);
-				if(!$sourceRecord && !$this->isEditedAfterBookmark($targetRecord)) {
-					$this->task->writeLn();
-					$this->task->writeln("\t\tTarget {$targetRecord->ClassName} \"{$targetRecord->getTitle()}\" is not in the source database. Deleting.");
+				if(!$sourceRecord && !$this->isEditedAfterBookmark($targetRecord)) {					
+					$this->task->log("Target {$targetRecord->ClassName} \"{$targetRecord->getTitle()}\" is not in the source database. Deleting.");
 					$targetIDs[] = $targetRecord->ID;
 					$this->task->deleted++;
+
+					if(!$hasActivity) {
+						$this->task->writeln();
+						$hasActivity = true;
+						$this->task->writeln($targetRecord->getTitle() . " " . SS_Cli::text('[DELETED]', 'red', null, true));
+					}
 				}
 			}
 
 			if(!empty($remoteIDs)) {				
 				$class::get()->fromTarget()->byIDs($remoteIDs)->removeAll();				
+			}
+
+			if($hasActivity) {
+				$this->task->write($classLabel);
 			}
 
 			$this->task->write("\033[50D");
@@ -95,16 +116,35 @@ class DatabaseSurgeonDataObjectMigration extends DatabaseSurgeonBaseMigration {
 		$classes = $this->getQualifyingClasses();
 
 		foreach($classes as $class) {
-			$this->task->write(str_pad("--- $class ---", 50, ' ', STR_PAD_RIGHT));
+			$classLabel = str_pad("--- $class ---", 50, ' ', STR_PAD_RIGHT);
+			$this->task->write($classLabel);
 			$sourceRecords = $class::get()->fromSource()->toArray();			
+			$hasActivity = false;
 			foreach($sourceRecords as $sourceRecord) {
 				$storedRecord = $this->task->retrieve($sourceRecord);
-				if(!$storedRecord) continue;
+				if(!$storedRecord) {
+					continue;
+				}
 
-				$this->relateHasOne($storedRecord);
-				//$this->relateHasMany($storedRecord);
-				$this->relateManyMany($storedRecord);
+				$hasOneMsg = $this->relateHasOne($storedRecord);
+				$mmMsg = $this->relateManyMany($storedRecord);
 
+				if($hasOneMsg || $mmMsg) {
+					if(!$hasActivity) $this->task->writeln();
+					$hasActivity = true;
+					if($hasOneMsg) {
+						$this->task->writeln("\t".$hasOneMsg);
+					}
+					if($mmMsg) {
+						$this->task->writeln("\t".$mmMsg);
+					}
+				}
+
+			}
+
+			if($hasActivity) {
+				$this->task->writeln();
+				$this->task->write($classLabel);
 			}
 			$this->task->write("\033[50D");
 			$previousClass = $class;
