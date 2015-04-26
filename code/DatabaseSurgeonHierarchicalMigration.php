@@ -142,20 +142,22 @@ class DatabaseSurgeonHierarchicalMigration extends DatabaseSurgeonBaseMigration 
 		}
 		
 		$record->forceChange();
-		if($record->__TargetParentID) {
-			$originalParent = $record->ParentID;
-			$record->ParentID = $record->__TargetParentID;
-			$newID = $record->createOnTarget();
-			$record->ParentID = $originalParent;
-		}
-		else {
-			$newID = $record->createOnTarget();
+		if(!$record->__TargetID) {
+			if($record->__TargetParentID !== null) {
+				$originalParent = $record->ParentID;
+				$record->ParentID = $record->__TargetParentID;
+				$newID = $record->createOnTarget();
+				$record->ParentID = $originalParent;
+			}
+			else  {
+				$newID = $record->createOnTarget();
+			}
+			
+			$record->__TargetID = $newID;
 		}
 		
-		$record->__TargetID = $newID;
-
 		$this->task->store($record);
-		$this->task->log("Source {$record->ClassName} \"{$record->getTitle()}\" stored on target as $newID with parent id {$record->__TargetParentID}");
+		$this->task->log("Source {$record->ClassName} \"{$record->getTitle()}\" stored on target as {$record->__TargetID} with parent id {$record->__TargetParentID}");
 		$this->task->added++;
 
 		return $record->Title . " " . SS_Cli::text('[CREATED]','green', null, true);

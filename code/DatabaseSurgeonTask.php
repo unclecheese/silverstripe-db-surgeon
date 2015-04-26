@@ -71,30 +71,31 @@ class DatabaseSurgeonTask extends DatabaseSurgeonBaseTask {
 			}
 		}
 
-		$this->writeLn("\nMigrating data based on bookmark from $bookmark\n");
-		$this->writeLn(SS_Cli::text("\n\n  Beginning DataObject migration\n",'white','blue'));
+		$this->writeLn("\nMigrating data based on bookmark from $bookmark\n");		
+		$this->writeHeader('Beginning DataObject migration');
+
 		$dataObjectTask = DatabaseSurgeonDataObjectMigration::create($this, $bookmark);
 		$dataObjectTask->runUpdatePhase();
 		$dataObjectTask->runDeletePhase();
 		$this->writeln();
-		$this->write(SS_Cli::text("[[[ DataObject migration complete ]]]",'black','yellow'));
+		$this->writeFooter('DataObject migration complete');
 		$this->writeln();
 
 
-		$this->writeLn(SS_Cli::text("\n\n  Beginning assets migration\n",'white','blue'));
+		$this->writeHeader('Beginning Assets migration');
 		$assetsTask = DatabaseSurgeonAssetsMigration::create($this, $bookmark);
 		$assetsTask->runUpdatePhase();
 		$assetsTask->runDeletePhase();
 		$this->writeln();
-		$this->write(SS_Cli::text("[[[ Assets migration complete ]]]",'black','yellow'));
+		$this->writeFooter("Assets migration complete");
 		$this->writeln();
 
-		$this->writeLn(SS_Cli::text("\n\n  Beginning SiteTree migration\n",'white','blue'));
+		$this->writeHeader('Beginning SiteTree migration');
 		$siteTreeTask = DatabaseSurgeonSiteTreeMigration::create($this, $bookmark);
 		$siteTreeTask->runUpdatePhase();
 		$siteTreeTask->runDeletePhase();
 		$this->writeln();
-		$this->write(SS_Cli::text("[[[ SiteTree migration complete ]]]",'black','yellow'));
+		$this->writeFooter("SiteTree migration complete");		
 		$this->writeln();
 
 		$this->writeLn("\n\nRelating DataObjects...\n");
@@ -104,5 +105,25 @@ class DatabaseSurgeonTask extends DatabaseSurgeonBaseTask {
 		$this->writeLn("\n\nRelating SiteTree...\n");
 		$siteTreeTask->runRelatePhase();
 		 			
+	}
+
+	protected function writeHeader($txt) {
+		$this->writeln(SS_Cli::text(str_pad('', 50, ' ', STR_PAD_RIGHT), 'white','blue'));
+		$this->writeLn(SS_Cli::text(str_pad(" $txt ", 50, ' ', STR_PAD_RIGHT),'white','blue'));
+		$this->writeln(SS_Cli::text(str_pad('', 50, ' ', STR_PAD_RIGHT), 'white','blue'));		
+	}
+
+
+	protected function writeFooter($txt) {
+		$this->writeln(
+			SS_Cli::text(
+				str_pad(
+					"[[[ $txt ]]]",
+					50,
+					' ', 
+					STR_PAD_RIGHT
+				),
+			'black','yellow')
+		);		
 	}
 }

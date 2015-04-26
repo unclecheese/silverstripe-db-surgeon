@@ -59,6 +59,7 @@ class DatabaseSurgeonAssetsMigration extends DatabaseSurgeonHierarchicalMigratio
 			$folderName = preg_replace('/^'.ASSETS_DIR.'\//', '', $record->Filename);
 			$new = Folder::find_or_make($folderName);
 			$record->__TargetID = $new->ID;
+
 			return parent::handleCreate($record);
 		}
 				
